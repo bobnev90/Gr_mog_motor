@@ -30,6 +30,9 @@ cvd_df = cvd_df[cvd_df['age'] >= cvd_df['t_avg']].reset_index(drop=True) # - в�
 cvd_df = cvd_df[(cvd_df['p_consumpt'] <= 20) & (cvd_df['p_consumpt'] > 0)].reset_index(drop=True) #расход дизеля на Га
 cvd_df = cvd_df[(cvd_df['o_consumpt'] <= 10) & (cvd_df['o_consumpt'] > 0)].reset_index(drop=True) #расход масла на Га
 
+#проставим машины, где был даунгрейд (двигатель вскрывался, меняли форсунки)
+
+
 #разбиваем на у и х
 y = cvd_df['CRASH']
 X = cvd_df.drop(['CRASH'], axis=1).copy()
