@@ -7,8 +7,18 @@ import machine_learning_datasets as ml
 import pandas as pd
 import numpy as np
 import statsmodels.api as sm
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import PolynomialFeatures, StandardScaler
 from sklearn.model_selection import train_test_split
+from sklearn import metrics, linear_model, tree, naive_bayes, neighbors, ensemble, neural_network, svm, decomposition, manifold
 import matplotlib.pyplot as plt 
+from rulefit import RuleFit
+import statsmodels.api as sm
+from interpret.glassbox import ExplainableBoostingClassifier
+from interpret import show
+from interpret.perf import ROC
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 cvd_df = pd.read_csv("Pannenstatistik.csv") #Ausfallstatistik der Erntemaschine
 cvd_df.info() #Es ist notwendig, Daten auf die Maschinen herunterzuladen
@@ -17,6 +27,9 @@ cvd_df['age'] =  cvd_df['age'] / 365 #Das Alter wird als Differenz zwischen dem 
 
 #Fehlerüberprüfung
 cvd_df.describe().transpose()
+
+#-----------------------------------------------------------------------------------------------------------------------------------------
+#подготовка данных
 
 #РЕЧЬ ИДЕТ ОБ ОБОРОТАХ МОТОРА, НЕ ПУТАТЬ С ОБОРОТАМИ ВАЛА ОТБОРА МОЩНОСТИ!!!!!!!
 #(RUS) Проверка на обороты. Средние обороты (интенсивность работы машины) не может быть больше 5000 оборотов.
@@ -31,8 +44,18 @@ cvd_df = cvd_df[(cvd_df['p_consumpt'] <= 20) & (cvd_df['p_consumpt'] > 0)].reset
 cvd_df = cvd_df[(cvd_df['o_consumpt'] <= 10) & (cvd_df['o_consumpt'] > 0)].reset_index(drop=True) #расход масла на Га
 
 #проставим машины, где был даунгрейд (двигатель вскрывался, меняли форсунки)
+ORD_NUM_END = ['RUS', 'BLS', 'RU4', 'UKR', 'UK4', 'POL', 'PO4', 'HU4', 'KAZ', 'KZ4'] #отметки того, что двигатель на замену. Последние 3 символа в номере заказа!!!
+
+is_dwngrd = cvd_df['OFFERING_NUM_END'].isin(ORD_NUM_END)
+cvd_df['WAS_DOWNGRADED'] = 0
+cvd_df.loc[is_dwngrd, 'WAS_DOWNGRADED'] = 1
 
 
+
+
+
+
+#ЛОГИСТЧЕСКАЯ МОДЕЛЬ
 #разбиваем на у и х
 y = cvd_df['CRASH']
 X = cvd_df.drop(['CRASH'], axis=1).copy()
