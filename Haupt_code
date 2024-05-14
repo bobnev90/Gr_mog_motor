@@ -21,8 +21,34 @@ cvd_df.describe().transpose()
 #РЕЧЬ ИДЕТ ОБ ОБОРОТАХ МОТОРА, НЕ ПУТАТЬ С ОБОРОТАМИ ВАЛА ОТБОРА МОЩНОСТИ!!!!!!!
 #(RUS) Проверка на обороты. Средние обороты (интенсивность работы машины) не может быть больше 5000 оборотов.
 #макс. обороты не могут быть больше 7000 (оборотов)
-cvd_df = cvd_df[(cvd_df['t_avg'] <= 7000) & (cvd_df['t_avg'] > 0)].reset_index(drop=True)
-cvd_df = cvd_df[(cvd_df['t_max'] <= 10000) & (cvd_df['t_max'] > 0)].reset_index(drop=True)
-cvd_df = cvd_df[cvd_df['t_max'] >= cvd_df['t_avg']].reset_index(drop=True)
+cvd_df = cvd_df[(cvd_df['t_avg'] <= 5000) & (cvd_df['t_avg'] > 0)].reset_index(drop=True)
+cvd_df = cvd_df[(cvd_df['t_max'] <= 7000) & (cvd_df['t_max'] > 0)].reset_index(drop=True)
+cvd_df = cvd_df[cvd_df['t_max'] >= cvd_df['t_avg']].reset_index(drop=True) #максимальные обороты не могут быть больше средних
 
-cvd_df = cvd_df[cvd_df['age'] >= cvd_df['t_avg']].reset_index(drop=True)
+cvd_df = cvd_df[cvd_df['age'] >= cvd_df['t_avg']].reset_index(drop=True) # - возраст мотора не может быть больше возраста машины. Новые машины с БУ двигателями исключаем
+
+cvd_df = cvd_df[(cvd_df['p_consumpt'] <= 20) & (cvd_df['p_consumpt'] > 0)].reset_index(drop=True) #расход дизеля на Га
+cvd_df = cvd_df[(cvd_df['o_consumpt'] <= 10) & (cvd_df['o_consumpt'] > 0)].reset_index(drop=True) #расход масла на Га
+
+#разбиваем на у и х
+y = cvd_df['CRASH']
+X = cvd_df.drop(['CRASH'], axis=1).copy()
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=5)
+
+log_model = sm.Logit(y_train, sm.add_constant(X_train))
+log_result = log_model.fit()
+print(log_result.summary2())
+
+#проверим самые значимые показатели
+np.exp(log_result.params).sort_values(ascending=False)
+
+coefs = log_result.params.drop(labels=['const','gender'])
+stdv = np.std(X_train, 0).drop(labels='gender')
+abs(coefs * stdv).sort_values(ascending=False)
+
+#сводка по конкретной машине
+
+mNum = 1
+
+print(f'Вероятность поломки двигателя у машины № {mNum} = {round(y_pred[mNum]*100,2)}%')
+print(X_test.iloc[mNum])
