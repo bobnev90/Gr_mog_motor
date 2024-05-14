@@ -1,11 +1,28 @@
-#Nur fur Jupyter notebook (Breitbild - 90%)
+#!!!Nur fur Jupyter notebook (Breitbild - 90%)
 #from IPython.display import display, HTML
 #display(HTML("<style>.container { width:90% !important; }</style>"))
 
 import math
-import machine_learning_datasets as mldatasets
+import machine_learning_datasets as ml
 import pandas as pd
 import numpy as np
 import statsmodels.api as sm
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt 
+
+cvd_df = pd.read_csv("Pannenstatistik.csv") #Ausfallstatistik der Erntemaschine
+cvd_df.info() #Es ist notwendig, Daten auf die Maschinen herunterzuladen
+
+cvd_df['age'] =  cvd_df['age'] / 365 #Das Alter wird als Differenz zwischen dem Produktionsdatum und dem aktuellen Datum gespeichert. (Tage)
+
+#Fehlerüberprüfung
+cvd_df.describe().transpose()
+
+#РЕЧЬ ИДЕТ ОБ ОБОРОТАХ МОТОРА, НЕ ПУТАТЬ С ОБОРОТАМИ ВАЛА ОТБОРА МОЩНОСТИ!!!!!!!
+#(RUS) Проверка на обороты. Средние обороты (интенсивность работы машины) не может быть больше 5000 оборотов.
+#макс. обороты не могут быть больше 7000 (оборотов)
+cvd_df = cvd_df[(cvd_df['t_avg'] <= 7000) & (cvd_df['t_avg'] > 0)].reset_index(drop=True)
+cvd_df = cvd_df[(cvd_df['t_max'] <= 10000) & (cvd_df['t_max'] > 0)].reset_index(drop=True)
+cvd_df = cvd_df[cvd_df['t_max'] >= cvd_df['t_avg']].reset_index(drop=True)
+
+cvd_df = cvd_df[cvd_df['age'] >= cvd_df['t_avg']].reset_index(drop=True)
