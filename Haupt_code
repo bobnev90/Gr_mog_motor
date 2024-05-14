@@ -50,7 +50,11 @@ is_dwngrd = cvd_df['OFFERING_NUM_END'].isin(ORD_NUM_END)
 cvd_df['WAS_DOWNGRADED'] = 0
 cvd_df.loc[is_dwngrd, 'WAS_DOWNGRADED'] = 1
 
-
+#повышение температуры. Даже при разовом наблюдении скачка температуры выше 105 град - говрит о серьезном нарушении системы охлаждения.
+#переведем показатель МАКС температура в булиан - проблема с охлаждением
+#при этом температура выше 200 градусов говорит о повреждении датчика, аварии или ошибке БД
+cvd_df = cvd_df[(cvd_df['MAX_ENGINE_TEMP'] <= 200)].reset_index(drop=True)
+cvd_df['COOLER_PROBLEM'] = cvd_df['MAX_ENGINE_TEMP'].apply(lambda x: 1 if x > 105 else 0)
 
 
 
