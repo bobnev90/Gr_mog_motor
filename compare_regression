@@ -1,1 +1,99 @@
+#!!!Nur fur Jupyter notebook (Breitbild - 90%)
+#from IPython.display import display, HTML
+#display(HTML("<style>.container { width:90% !important; }</style>"))
+
+import math
+import machine_learning_datasets as ml
+import pandas as pd
+import numpy as np
+import statsmodels.api as sm
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import PolynomialFeatures, StandardScaler
+from sklearn.model_selection import train_test_split
+from sklearn import metrics, linear_model, tree, naive_bayes, neighbors, ensemble, neural_network, svm, decomposition, manifold
+import matplotlib.pyplot as plt 
+from rulefit import RuleFit
+import statsmodels.api as sm
+from interpret.glassbox import ExplainableBoostingClassifier
+from interpret import show
+from interpret.perf import ROC
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+cvd_df = pd.read_csv("Pannenstatistik.csv") #Ausfallstatistik der Erntemaschine
+cvd_df.info() #Es ist notwendig, Daten auf die Maschinen herunterzuladen
+
+cvd_df['age'] =  cvd_df['age'] / 365 #Das Alter wird als Differenz zwischen dem Produktionsdatum und dem aktuellen Datum gespeichert. (Tage)
+
+#Fehlerüberprüfung
+cvd_df.describe().transpose()
+
+#-----------------------------------------------------------------------------------------------------------------------------------------
+#подготовка данных
+
+#РЕЧЬ ИДЕТ ОБ ОБОРОТАХ МОТОРА, НЕ ПУТАТЬ С ОБОРОТАМИ ВАЛА ОТБОРА МОЩНОСТИ!!!!!!!
+#(RUS) Проверка на обороты. Средние обороты (интенсивность работы машины) не может быть больше 5000 оборотов.
+#макс. обороты не могут быть больше 7000 (оборотов)
+cvd_df = cvd_df[(cvd_df['t_avg'] <= 5000) & (cvd_df['t_avg'] > 0)].reset_index(drop=True)
+cvd_df = cvd_df[(cvd_df['t_max'] <= 7000) & (cvd_df['t_max'] > 0)].reset_index(drop=True)
+cvd_df = cvd_df[cvd_df['t_max'] >= cvd_df['t_avg']].reset_index(drop=True) #максимальные обороты не могут быть больше средних
+
+cvd_df = cvd_df[cvd_df['age'] >= cvd_df['t_avg']].reset_index(drop=True) # - возраст мотора не может быть больше возраста машины. Новые машины с БУ двигателями исключаем
+
+cvd_df = cvd_df[(cvd_df['p_consumpt'] <= 20) & (cvd_df['p_consumpt'] > 0)].reset_index(drop=True) #расход дизеля на Га
+cvd_df = cvd_df[(cvd_df['o_consumpt'] <= 10) & (cvd_df['o_consumpt'] > 0)].reset_index(drop=True) #расход масла на Га
+
+#проставим машины, где был даунгрейд (двигатель вскрывался, меняли форсунки)
+ORD_NUM_END = ['RUS', 'BLS', 'RU4', 'UKR', 'UK4', 'POL', 'PO4', 'HU4', 'KAZ', 'KZ4'] #отметки того, что двигатель на замену. Последние 3 символа в номере заказа!!!
+
+is_dwngrd = cvd_df['OFFERING_NUM_END'].isin(ORD_NUM_END)
+cvd_df['WAS_DOWNGRADED'] = 0
+cvd_df.loc[is_dwngrd, 'WAS_DOWNGRADED'] = 1
+
+#повышение температуры. Даже при разовом наблюдении скачка температуры выше 105 град - говрит о серьезном нарушении системы охлаждения.
+#переведем показатель МАКС температура в булиан - проблема с охлаждением
+#при этом температура выше 200 градусов говорит о повреждении датчика, аварии или ошибке БД
+cvd_df = cvd_df[(cvd_df['MAX_ENGINE_TEMP'] <= 200)].reset_index(drop=True)
+cvd_df['COOLER_PROBLEM'] = cvd_df['MAX_ENGINE_TEMP'].apply(lambda x: 1 if x > 105 else 0)
+
+#==========================================================================================================================================
+#Вначале посмотрим, на сколько хорошо мы можем оценивать показатель "через сколько гектар надо делать ремонт двигателя"
+
+rand = 7
+y = cvd_df['HA_BEFORE_CRASH']
+X = cvd_df.drop(['HA_BEFORE_CRASH'], axis=1).copy()
+X_train, X_test, y_train_reg, y_test_reg = train_test_split(X, y, test_size=0.2, random_state=rand)
+
+#разберем 6 моделей для линейной модели: линейная регрессия, полином, интерсекция, ДПР, рандомДПР, МЛП-регрессия (!!!не путать с МЛП классификатор!!!)
+#ПЫТАЕМСЯ ОЦЕНИТЬ СКОЛЬКО ГЕКТАР ДО ПОЛОМКИ (HA_BEFORE_CRASH - ПОКАЗАТЕЛЬ ГА ДО ПОЛОМКИ)
+
+reg_models = {
+
+        'linear':{'model': linear_model.LinearRegression()}, 
+        'linear_poly':{'model': make_pipeline(PolynomialFeatures(degree=2), linear_model.LinearRegression(fit_intercept=False)) },
+        'linear_interact':{'model': make_pipeline(PolynomialFeatures(interaction_only=True), linear_model.LinearRegression(fit_intercept=False)) },
+        'decision_tree':{'model': tree.DecisionTreeRegressor(max_depth=5, random_state=rand)},
+        'random_forest':{'model':ensemble.RandomForestRegressor(max_depth=7, random_state=rand)}, 
+        'mlp':{'model':neural_network.MLPRegressor(hidden_layer_sizes=(15,15,15), max_iter=300, 
+                                                   early_stopping=True, random_state=rand)}
+
+#СФОРМИРУЕМ ТАБЛИЦУ С РЕЗУЛЬТАТОМ
+
+for model in reg_models.keys():
+    #print(model)
+    fitted_model = reg_models[model]['model'].fit(X_train, y_train_reg)
+    y_train_pred = fitted_model.predict(X_train.values)
+    y_test_pred = fitted_model.predict(X_test.values)
+    reg_models[model]['fitted'] = fitted_model
+    reg_models[model]['preds'] = y_test_pred
+    reg_models[model['RMSE_train'] = math.sqrt(metrics.mean_squared_error(y_train_reg, y_train_pred))
+    reg_models[model]['RMSE_test'] = math.sqrt(metrics.mean_squared_error(y_test_reg, y_test_pred))
+    reg_models[model]['R2_test'] = metrics.r2_score(y_test_reg, y_test_pred)
+
+#СМОТРИМ МЕТРИКИ 
+reg_metrics = pd.DataFrame.from_dict(reg_models, 'index')[['RMSE_train', 'RMSE_test', 'R2_test']]
+reg_metrics.sort_values(by='RMSE_test')
+
+#R2 у всех моедеолй ниже 10%. Связанос тем, что слишком большой разбег, если с двигателдем все ОК он может проработать и 100 Га и 1000 Га и 10000 Га + не учитываем фактор капитального ремонта.
+#Вывод: НАДО СМОТРЕТЬ МОДЕЛИ КЛАССИФИКАТОРЫ
 
