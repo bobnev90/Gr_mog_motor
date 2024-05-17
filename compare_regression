@@ -97,3 +97,49 @@ reg_metrics.sort_values(by='RMSE_test')
 #R2 у всех моедеолй ниже 10%. Связанос тем, что слишком большой разбег, если с двигателдем все ОК он может проработать и 100 Га и 1000 Га и 10000 Га + не учитываем фактор капитального ремонта.
 #Вывод: НАДО СМОТРЕТЬ МОДЕЛИ КЛАССИФИКАТОРЫ
 
+
+#Будем смотреть модели классификации
+
+#Classification method
+
+class_models = {
+        'logistic':{'model': linear_model.LogisticRegression()}, 
+        'decision_tree':{'model': tree.DecisionTreeClassifier(max_depth=7, random_state=rand)},
+        'gradient_boosting':{'model':ensemble.GradientBoostingClassifier(n_estimators=210)},
+        'random_forest':{'model':ensemble.RandomForestClassifier(max_depth=11,\
+                                                                 class_weight='balanced', random_state=rand)},
+        'mlp':{'model':make_pipeline(StandardScaler(),\
+                                     neural_network.MLPClassifier(hidden_layer_sizes=(7,7), max_iter=500,\
+                                                   early_stopping=True, random_state=rand))}
+    }
+
+for model_name in class_models.keys():
+    fitted_model = class_models[model_name]['model'].fit(X_train, y_train_class)
+    y_train_pred = fitted_model.predict(X_train.values)
+    if model_name == 'ridge':
+        y_test_pred = fitted_model.predict(X_test.values) 
+    else:
+        y_test_prob = fitted_model.predict_proba(X_test.values)[:,1]
+        y_test_pred = np.where(y_test_prob > 0.5, 1, 0)
+    class_models[model_name]['fitted'] = fitted_model
+    class_models[model_name]['probs'] = y_test_prob
+    class_models[model_name]['preds'] = y_test_pred
+    class_models[model_name]['Accuracy_train'] = metrics.accuracy_score(y_train_class, y_train_pred)
+    class_models[model_name]['Accuracy_test'] = metrics.accuracy_score(y_test_class, y_test_pred)
+    class_models[model_name]['Recall_train'] = metrics.recall_score(y_train_class, y_train_pred)
+    class_models[model_name]['Recall_test'] = metrics.recall_score(y_test_class, y_test_pred)
+    if model_name != 'ridge':
+        class_models[model_name]['ROC_AUC_test'] = metrics.roc_auc_score(y_test_class, y_test_prob)
+    else:
+        class_models[model_name]['ROC_AUC_test'] = 0
+    class_models[model_name]['F1_test'] = metrics.f1_score(y_test_class, y_test_pred)
+    class_models[model_name]['MCC_test'] = metrics.matthews_corrcoef(y_test_class, y_test_pred)
+
+#Сравним метрики
+
+class_metrics = pd.DataFrame.from_dict(class_models, 'index')[['Accuracy_train', 'Accuracy_test',\
+                                                               'Recall_train', 'Recall_test',\
+                                                               'ROC_AUC_test', 'F1_test', 'MCC_test']]
+class_metrics.sort_values(by='ROC_AUC_test', ascending=False)
+
+#Максимальный опять MLP и теперь уже показатели стабильные
