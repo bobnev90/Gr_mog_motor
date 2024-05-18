@@ -142,4 +142,6 @@ class_metrics = pd.DataFrame.from_dict(class_models, 'index')[['Accuracy_train',
                                                                'ROC_AUC_test', 'F1_test', 'MCC_test']]
 class_metrics.sort_values(by='ROC_AUC_test', ascending=False)
 
-#Максимальный опять MLP и теперь уже показатели стабильные
+  #Максимальный опять MLP и теперь уже показатели стабильные
+#Indikatoren sind zuverlässig. 
+#In Zukunft werden wir neuronale Netze verwenden, um die Möglichkeit eines Ausfalls des Motors und möglicherweise anderer Teile des Mähdreschers vorherzusagen.
