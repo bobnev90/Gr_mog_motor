@@ -20,7 +20,7 @@ from interpret.perf import ROC
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-cvd_df = pd.read_csv("Pannenstatistik.csv") #Ausfallstatistik der Erntemaschine
+cvd_df = pd.read_csv("!!!Pannenstatistik_202205_ENDLICH.csv") #Ausfallstatistik der Erntemaschine
 cvd_df.info() #Es ist notwendig, Daten auf die Maschinen herunterzuladen
 
 cvd_df['age'] =  cvd_df['age'] / 365 #Das Alter wird als Differenz zwischen dem Produktionsdatum und dem aktuellen Datum gespeichert. (Tage)
