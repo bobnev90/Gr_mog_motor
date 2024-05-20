@@ -145,3 +145,19 @@ class_metrics.sort_values(by='ROC_AUC_test', ascending=False)
   #Максимальный опять MLP и теперь уже показатели стабильные
 #Indikatoren sind zuverlässig. 
 #In Zukunft werden wir neuronale Netze verwenden, um die Möglichkeit eines Ausfalls des Motors und möglicherweise anderer Teile des Mähdreschers vorherzusagen.
+
+
+#-------------------------------------------------------------------------
+#ROC AUC
+
+plt.figure(figsize = (14,14))
+plt.tick_params(axis = 'both', which = 'major', labelsize = 12)
+fpr, tpr, _ = metrics.roc_curve(y_test_class, class_models['mlp']['probs'])
+plt.plot(fpr, tpr, label='ROC curve (area = %0.2f)' % class_models['mlp']['ROC_AUC_test'])
+plt.plot([0, 1], [0, 1], 'k--') 
+plt.xlabel('FRP', fontsize = 12)
+plt.ylabel('TPR', fontsize = 12)
+plt.xlim([0.0, 1.0])
+plt.ylim([0.0, 1.0])
+plt.legend(loc="lower left")
+
