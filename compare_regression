@@ -161,3 +161,8 @@ plt.xlim([0.0, 1.0])
 plt.ylim([0.0, 1.0])
 plt.legend(loc="lower left")
 
+
+#----------------------------------------------------------------------------
+#Также еще попробуем классическую бустинговую модель
+ebm_model = ExplainableBoostingClassifier()
+ebm_model.fit(X_train, y_train_class)
