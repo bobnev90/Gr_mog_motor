@@ -166,3 +166,62 @@ plt.legend(loc="lower left")
 #Также еще попробуем классическую бустинговую модель
 ebm_model = ExplainableBoostingClassifier()
 ebm_model.fit(X_train, y_train_class)
+
+
+#посмотрим значимые коэффициенты при помощи методом перстановки важности признаков (будем рандомно перетасовывать признаки и смотреть увеличилась ли ошибка. 
+#ЕСЛИ ОШИБКА НЕ МЕНЯЕТСЯ ПРИЗНАК НЕ ЗНАЧИМ, ЕСЛИ МЕНЯЕТСЯ - ТО ОСТАВЛЯЕМ. (ЛИШНИЕ ПРИЗНАКИ МОГУТ ПРИВЕЗТИ К ПЕРЕОБУЧЕНИЮ МОДЕЛИ
+
+#PFI
+
+#РАСЧИТАЕМ ДЛЯ КАЖДОГО PFI
+for model_name in class_models.keys():
+    fitted_model = class_models[model_name]['fitted']
+    permutation_imp = inspection.permutation_importance(\
+                        fitted_model, X_test, y_test, n_jobs=-1,\
+                        scoring='accuracy', n_repeats=8,\
+                        random_state=rand)
+    class_models[model_name]['importances_mean'] =\
+                        permutation_imp.importances_mean
+
+#ПРОСТАВИМ В ТАБЛИЦУ
+perm_imp_df = pd.DataFrame({
+        'name': X_train.columns,\
+                'dt_imp': class_models['decision_tree']['importances_mean'],\
+                'gb_imp': class_models['gradient_boosting']['importances_mean'],\
+                'rf_imp': class_models['random_forest']['importances_mean'],\
+                'log_imp': class_models['logistic']['importances_mean'],\
+                'mlp_imp': class_models['mlp']['importances_mean']}).\
+            reset_index(drop=True)
+
+#ПОСЧИТАЕМ СРЕДНЕЕ ДЛЯ КАЖДОЙ ДЛЯ КАЖДОГО ПОКАЗАТЕЛЯ
+perm_imp_df['avg_imp'] = (perm_imp_df['dt_imp'] + perm_imp_df['gb_imp'] +\
+                         perm_imp_df['rf_imp'] + perm_imp_df['log_imp'] +\
+                         perm_imp_df['mlp_imp'])/6
+
+#ПОКАЖЕМ ОТСОРТИРОВАННУЮ ТАБЛИЦУ ЗНАЧИМОСТИ КАЖДОГО ПОКАЗАТЕЛЯ
+perm_imp_sorted_df = perm_imp_df.round(5).\
+    sort_values(by='avg_imp', ascending=False)
+perm_imp_sorted_df.style.\
+    background_gradient(cmap='viridis_r', low=0, high=0.2,\
+                        subset=['dt_imp', 'gb_imp', 'rf_imp',\
+                                'log_imp',  'mlp_imp'])
+
+#ВЫВЕДЕМ ЗНАЧИМОСТЬ ПОКАЗАТЕЛДЕЙ ГРАФИЧЕСКИ. ПРОСТО НАПРОТИВ КАЖДОГО ПОКАЗАТЕЛЯ ПОСТРОИМ СРЕДНЕЕ ЗНАЧЕНИЕ И РАЗБРОС. КАК В СРЕДНЕМ ПОКАЗАТЕЛЬ ВЛИЯЕТ НА РЕЗУЛЬТАТ
+
+#!!!!!!!!!!!!!!!!!!!!!!!
+#!!!!!!!!!!!!!!!ПЕРЕДЕЛАЛ ЗА РУСЛАНОМ!!!!! В ЕГО КОДЕ БЫЛА УСТАРЕВШАЯ ВЕРСИЯ pdpbox. ИЗМЕНИЛАСЬ ОРФОГРАФИЯ.
+
+for i in range(len(feature_names)):
+    pdp_feat_df = pdp.PDPIsolate(\
+        model=class_models['gradient_boosting']['fitted'],\
+        df=pd.concat((X_test, y_test), axis=1),\
+        model_features=X_test.columns,\
+        feature=feature_names[i], feature_name="properties"
+    )
+    fig, axes = pdp_feat_df.plot(
+    center=False,
+    plot_lines=False,
+    plot_pts_dist=False,
+    to_bins=False,
+    engine='matplotlib'
+    )
